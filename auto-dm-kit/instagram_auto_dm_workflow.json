@@ -1,0 +1,1947 @@
+{
+  "name": "Instagram Auto DM (Reels) – Template",
+  "nodes": [
+    {
+      "id": "0d012ad4-63a5-4bf4-a614-3031cb44f273",
+      "name": "📞 Meta Verify (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        -400
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "ig-auto-dm",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "06736cb0-c6cf-4fe8-956a-0b8931f5715c"
+    },
+    {
+      "id": "14878e86-21c1-41e2-b1e5-12d09ed1267d",
+      "name": "⚙️ Settings (verify)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        -400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Settings"
+        },
+        "returnAll": false,
+        "limit": 1
+      }
+    },
+    {
+      "id": "9272c977-8a95-4779-bd4a-446a9b1e3c8b",
+      "name": "Verify token OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        -400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('📞 Meta Verify (GET)').first().json.query['hub.verify_token'] }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "={{ $json.verify_token }}"
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "ac866320-cbd6-4fd4-91c1-a1f139094779",
+      "name": "✅ Return Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        -500
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('📞 Meta Verify (GET)').first().json.query['hub.challenge'] }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "e5fa7619-a53b-4a38-b9b8-d003a8b34ac9",
+      "name": "⛔ Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        660,
+        -300
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Forbidden",
+        "options": {
+          "responseCode": 403
+        }
+      }
+    },
+    {
+      "id": "716249c3-e135-43b8-979f-74913a0d06ab",
+      "name": "💬 New Comment (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ig-auto-dm",
+        "responseMode": "onReceived",
+        "options": {
+          "onlyRunIf": "={{ $json.body && $json.body.object === 'instagram' }}"
+        }
+      },
+      "webhookId": "d440fe1f-bb5b-4e20-934a-50cb67d69010"
+    },
+    {
+      "id": "076d0bfa-c1b9-4933-affc-f4e05953a218",
+      "name": "📥 Extract Comments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json.body || {};\nconst out = [];\nconst seen = new Set();\nfor (const entry of body.entry || []) {\n  for (const ch of entry.changes || []) {\n    if (ch.field !== 'comments') continue;\n    const v = ch.value || {};\n    const from = v.from || {};\n    if (!v.id || !from.id || seen.has(v.id)) continue;\n    // Never react to our own comments (our public replies come back as webhooks too)\n    if (String(from.id) === String(entry.id)) continue;\n    seen.add(v.id);\n    out.push({ json: {\n      comment_id: String(v.id),\n      text: String(v.text || ''),\n      user_id: String(from.id),\n      username: String(from.username || ''),\n      media_id: String((v.media || {}).id || ''),\n      media_type: String((v.media || {}).media_product_type || ''),\n      account_id: String(entry.id)\n    } });\n  }\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "5f59cc3a-5375-42a6-ac46-f55fced58dad",
+      "name": "⚙️ Load Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Settings"
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "e8582014-16f2-4d0e-bf76-8ca9cc37f672",
+      "name": "🎬 Load Active Reels",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Reels"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "active",
+              "condition": "isTrue"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "fde40d5f-eae6-491f-a90d-490361fb866e",
+      "name": "🔎 Keyword Prefilter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Cheap first pass: keep only comments that contain at least one active keyword.\nconst s = $('⚙️ Load Settings').first().json;\nconst reels = $('🎬 Load Active Reels').all().map(i => i.json).filter(r => r && r.active);\nconst norm = t => ' ' + String(t || '').toLowerCase().normalize('NFKC').replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim() + ' ';\nconst matches = (r, text) => String(r.keyword || '').split(',').map(k => k.trim()).filter(Boolean)\n  .some(k => k === '*' || (norm(k).trim() && text.includes(norm(k))));\nconst me = String(s.ig_username || '').toLowerCase().replace(/^@/, '');\n\nconst out = [];\nfor (const it of $('📥 Extract Comments').all()) {\n  const c = it.json;\n  if (me && c.username.toLowerCase() === me) continue;\n  if (s.ig_user_id && String(c.user_id) === String(s.ig_user_id)) continue;\n  const text = norm(c.text);\n  if (reels.some(r => matches(r, text))) out.push({ json: c });\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "96c9e3fc-b2c7-42c8-80d3-40fcc1910cde",
+      "name": "🎞️ Get Reel Info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.instagram.com/v24.0/{{ $json.media_id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,shortcode,permalink"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('⚙️ Load Settings').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "bca0ac37-c020-414c-9bcc-be21f86a44df",
+      "name": "🎯 Match Reel + Build DM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const s = $('⚙️ Load Settings').first().json;\n// Newest row first, so re-adding a reel overrides its older row\nconst reels = $('🎬 Load Active Reels').all().map(i => i.json).filter(r => r && r.active)\n  .sort((a, b) => Number(b.id) - Number(a.id));\nconst pre = $('🔎 Keyword Prefilter').all();\nconst info = $input.all();\n\nconst norm = t => ' ' + String(t || '').toLowerCase().normalize('NFKC').replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim() + ' ';\nconst codeOf = u => (String(u || '').match(/\\/(?:reel|reels|p|tv)\\/([A-Za-z0-9_-]+)/) || [])[1] || '';\nconst pick = txt => { const v = String(txt || '').split('||').map(x => x.trim()).filter(Boolean); return v.length ? v[Math.floor(Math.random() * v.length)] : ''; };\nconst isAll = r => ['ALL', '*'].includes(String(r.reel_url || '').trim().toUpperCase());\nconst minD = Math.max(1, Number(s.min_delay_sec) || 4);\nconst maxD = Math.max(minD, Number(s.max_delay_sec) || 15);\n\nconst out = [];\npre.forEach((p, i) => {\n  const c = p.json;\n  const m = (info[i] && info[i].json) || {};\n  const shortcode = m.shortcode || codeOf(m.permalink);\n  const text = norm(c.text);\n  const kwHit = r => String(r.keyword || '').split(',').map(k => k.trim()).filter(Boolean)\n    .find(k => k === '*' || (norm(k).trim() && text.includes(norm(k))));\n\n  const sameReel = r => (r.media_id && String(r.media_id) === c.media_id) || (shortcode && codeOf(r.reel_url) === shortcode);\n  const specific = reels.filter(r => sameReel(r) && kwHit(r));\n  const general = reels.filter(r => isAll(r) && kwHit(r));\n  const r = specific[0] || general[0];\n  if (!r) return;\n\n  const fill = t => t.replace(/\\{username\\}/g, c.username).replace(/\\{link\\}/g, r.link || '');\n  const dm = fill(pick(r.dm_message) || 'Hey @{username} 👋 Ye raha aapka link: {link}');\n  out.push({ json: {\n    ...c,\n    shortcode,\n    reel_row_id: r.id,\n    keyword: kwHit(r),\n    dm_text: dm.slice(0, 1000),\n    public_reply_text: fill(pick(r.public_reply)).slice(0, 300),\n    delay_sec: minD + Math.floor(Math.random() * (maxD - minD + 1))\n  } });\n});\nreturn out;"
+      }
+    },
+    {
+      "id": "7da967b9-2331-422e-bb52-722d962e011f",
+      "name": "🔁 One Comment at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1540,
+        200
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "063a6dbe-ddb9-4ff6-a1ba-c756eab34611",
+      "name": "📊 DMs Sent Last Hour",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Log"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "sent"
+            },
+            {
+              "keyName": "sent_at",
+              "condition": "gte",
+              "keyValue": "={{ $now.minus({ hours: 1 }).toISO() }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "13512ac3-19a6-4cbc-bb77-abc38988c6eb",
+      "name": "🚦 Hourly Cap Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const c = $('🔁 One Comment at a Time').first().json;\nconst sent = $input.all().filter(i => i.json && i.json.id).length;\nconst cap = Number($('⚙️ Load Settings').first().json.max_dms_per_hour) || 150;\nreturn [{ json: { ...c, sent_last_hour: sent, over_cap: sent >= cap } }];"
+      }
+    },
+    {
+      "id": "8b212377-01ea-459b-92ca-cdc37920114e",
+      "name": "🔒 Claim in Log",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "comment_id": "={{ $json.comment_id }}",
+            "media_id": "={{ $json.media_id }}",
+            "user_id": "={{ $json.user_id }}",
+            "username": "={{ $json.username }}",
+            "keyword": "={{ $json.keyword }}",
+            "comment_text": "={{ String($json.text || \"\").slice(0, 300) }}",
+            "status": "={{ $json.over_cap ? 'skip_cap' : 'claimed' }}",
+            "sent_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "comment_id",
+              "displayName": "comment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "media_id",
+              "displayName": "media_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "username",
+              "displayName": "username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "comment_text",
+              "displayName": "comment_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9f04a9b2-6aed-44ee-90ff-32f4a6077a92",
+      "name": "Over hourly cap?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2420,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('🚦 Hourly Cap Check').first().json.over_cap }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "8dea11b0-a5a1-4e5b-a156-d789b9acd616",
+      "name": "👥 Claims for this Person",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Log"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "condition": "eq",
+              "keyValue": "={{ $('🚦 Hourly Cap Check').first().json.user_id }}"
+            },
+            {
+              "keyName": "media_id",
+              "condition": "eq",
+              "keyValue": "={{ $('🚦 Hourly Cap Check').first().json.media_id }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "7be76e48-a3bf-400f-a009-28c27421c55d",
+      "name": "🥇 First DM for this Person?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Claim pattern: whoever wrote the oldest claimed/sent row for this person+reel wins.\n// Stops double DMs even when someone comments 6 times in 2 seconds.\nconst c = $('🚦 Hourly Cap Check').first().json;\nconst myId = $('🔒 Claim in Log').first().json.id;\nconst ids = $input.all().map(i => i.json)\n  .filter(r => r && r.id && ['claimed', 'sent'].includes(r.status))\n  .map(r => Number(r.id));\nconst isFirst = ids.length ? Math.min(...ids) === Number(myId) : true;\nreturn [{ json: { ...c, log_id: myId, is_first: isFirst } }];"
+      }
+    },
+    {
+      "id": "2a5cf737-7708-4b08-807a-f9d2ab9d1d0c",
+      "name": "Is first?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3080,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_first }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "7eb69a08-970b-4326-a886-095e8b56371f",
+      "name": "⏳ Human-like Delay",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3300,
+        300
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.delay_sec }}",
+        "unit": "seconds"
+      },
+      "webhookId": "1281adf3-c3bb-43e6-81cc-f66e881ef0f7"
+    },
+    {
+      "id": "0bdad666-18b2-4552-95ba-f6dbf6136b9d",
+      "name": "📩 Send Private Reply DM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3520,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/v24.0/{{ $('⚙️ Load Settings').first().json.ig_user_id }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('⚙️ Load Settings').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { comment_id: $('🥇 First DM for this Person?').first().json.comment_id }, message: { text: $('🥇 First DM for this Person?').first().json.dm_text } }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "fc3e45a5-d0c7-469e-967a-01926f73c61e",
+      "name": "📝 Log Result",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3740,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Log"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('🥇 First DM for this Person?').first().json.log_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ !$json.error ? 'sent' : (JSON.stringify($json.error).includes('An unknown error has occurred') ? 'sent' : 'failed') }}",
+            "error": "={{ $json.error ? JSON.stringify($json.error).slice(0, 500) : '' }}",
+            "sent_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sent_at",
+              "displayName": "sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "87e783d8-42a6-4f9d-8249-3d8ebf136df2",
+      "name": "Public reply too?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3960,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ (() => { const e = $('📩 Send Private Reply DM').first().json.error; const ok = !e || JSON.stringify(e).includes('An unknown error has occurred'); return ok && !!$('🥇 First DM for this Person?').first().json.public_reply_text; })() }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fcaab523-f88b-4e34-8984-9e5c9f41f4c1",
+      "name": "💬 Reply to Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4180,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.instagram.com/v24.0/{{ $('🥇 First DM for this Person?').first().json.comment_id }}/replies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('⚙️ Load Settings').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $('🥇 First DM for this Person?').first().json.public_reply_text }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "630ba127-b2ac-4cce-a15d-6833a41bc945",
+      "name": "🚫 Log Duplicate",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        3300,
+        520
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Log"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.log_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "skip_duplicate"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "180fc7a4-ba05-4cc4-8727-d13a8fbb1e4e",
+      "name": "➕ Add Reel Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        900
+      ],
+      "parameters": {
+        "authentication": "n8nUserAuth",
+        "formTitle": "Add a reel to Auto DM",
+        "formDescription": "Paste your reel link (or type ALL for every reel), the comment keyword, and what to DM. Use {username} and {link} in messages. Separate variations with || so every DM looks a little different.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Reel link",
+              "fieldName": "reel_url",
+              "fieldType": "text",
+              "placeholder": "https://www.instagram.com/reel/XXXXXXXX/  or  ALL",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Keyword(s)",
+              "fieldName": "keyword",
+              "fieldType": "text",
+              "placeholder": "n8n, link, guide",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Link to send",
+              "fieldName": "link",
+              "fieldType": "text",
+              "placeholder": "https://..."
+            },
+            {
+              "fieldLabel": "DM message (variations separated by ||)",
+              "fieldName": "dm_message",
+              "fieldType": "textarea",
+              "placeholder": "Hey @{username} 👋 Ye raha workflow: {link} || Hi @{username}! Link yaha hai 👉 {link}"
+            },
+            {
+              "fieldLabel": "Public comment reply (optional, variations separated by ||)",
+              "fieldName": "public_reply",
+              "fieldType": "textarea",
+              "placeholder": "DM check karo 📩 || Bhej diya 🔥"
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "path": "ig-auto-dm-add-reel",
+          "buttonLabel": "Add reel",
+          "appendAttribution": false,
+          "respondWithOptions": {
+            "values": {
+              "respondWith": "text",
+              "formSubmittedText": "Reel added ✅ Comments with your keyword will now get an auto DM."
+            }
+          }
+        }
+      },
+      "webhookId": "f61a96b1-c7de-4cc2-9e4c-b8a6ca2dc654"
+    },
+    {
+      "id": "cf43f46b-3013-47d0-a926-40d16bf32778",
+      "name": "💾 Save Reel",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        900
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Reels"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reel_url": "={{ String($json.reel_url || $json['Reel link'] || '').trim() }}",
+            "keyword": "={{ String($json.keyword || $json['Keyword(s)'] || '').trim() }}",
+            "link": "={{ String($json.link || $json['Link to send'] || '').trim() }}",
+            "dm_message": "={{ String($json.dm_message || '').trim() || 'Hey @{username} 👋 Ye raha aapka link: {link} || Hi @{username}! Link yaha hai 👉 {link}' }}",
+            "public_reply": "={{ String($json.public_reply || '').trim() }}",
+            "active": true,
+            "media_id": "",
+            "note": "={{ 'Added via form ' + $now.toFormat('yyyy-LL-dd HH:mm') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "reel_url",
+              "displayName": "reel_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dm_message",
+              "displayName": "dm_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "public_reply",
+              "displayName": "public_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "active",
+              "displayName": "active",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "media_id",
+              "displayName": "media_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9d6d8fc1-4428-4881-8887-eda0a2d39090",
+      "name": "🗓️ Every Monday 4 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        1200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 4
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "85443532-f1f5-4056-afe5-4fe8c82d5bf2",
+      "name": "🔑 Load Token",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        1200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Settings"
+        },
+        "returnAll": false,
+        "limit": 1
+      }
+    },
+    {
+      "id": "959e8f56-e456-4522-a301-117db53c8d27",
+      "name": "♻️ Refresh Token (60 days)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        1200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://graph.instagram.com/refresh_access_token",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "ig_refresh_token"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "1028bbc4-5312-4a0f-81d6-c393c89d8a7f",
+      "name": "💾 Save New Token",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        1200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('🔑 Load Token').first().json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "access_token": "={{ $json.access_token }}",
+            "token_refreshed_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "access_token",
+              "displayName": "access_token",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_refreshed_at",
+              "displayName": "token_refreshed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8ab5d829-7919-469a-bd55-1ff37612c1fb",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -1000
+      ],
+      "parameters": {
+        "content": "## 📸 Instagram Auto DM — setup\n1. Create 3 Data tables: **IG AutoDM Settings**, **IG AutoDM Reels**, **IG AutoDM Log** (columns in the guide PDF).\n2. Open every Data table node (yellow warning) and pick the matching table.\n3. Publish the workflow, then open `/form/ig-auto-dm-connect` and paste your Instagram token.\n4. Add a reel with `/form/ig-auto-dm-add-reel` (keyword `*` = any comment).\n5. Comment from another account → DM + reply within ~1 minute.",
+        "color": 4,
+        "width": 760,
+        "height": 520
+      }
+    },
+    {
+      "name": "🔐 Connect Instagram Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        1500
+      ],
+      "webhookId": "42b7da56-9925-4034-9019-580559d3edd0",
+      "parameters": {
+        "authentication": "n8nUserAuth",
+        "formTitle": "Connect Instagram",
+        "formDescription": "Paste the access token from Meta Developers → Instagram API → Generate token. Your user id and username are filled in automatically.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Instagram access token",
+              "fieldName": "access_token",
+              "fieldType": "password",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "ig-auto-dm-connect",
+          "buttonLabel": "Connect",
+          "appendAttribution": false
+        }
+      },
+      "id": "d08270a5-718b-4b87-a7e4-d53c69067853"
+    },
+    {
+      "name": "👤 Check Token (me)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        1500
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://graph.instagram.com/v24.0/me",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "user_id,username"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ String($json.access_token || '').trim() }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "53254529-a532-4f08-9728-b4012ee0c37d"
+    },
+    {
+      "name": "💾 Save Connection",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        1500
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Settings"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "1"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "value": {
+            "access_token": "={{ String($('🔐 Connect Instagram Form').first().json.access_token || '').trim() }}",
+            "ig_user_id": "={{ $json.user_id }}",
+            "ig_username": "={{ $json.username }}",
+            "token_refreshed_at": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "access_token",
+              "displayName": "access_token",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ig_user_id",
+              "displayName": "ig_user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ig_username",
+              "displayName": "ig_username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "token_refreshed_at",
+              "displayName": "token_refreshed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a015b338-b881-48a1-8536-9b4dc9a3a5bd"
+    },
+    {
+      "name": "✅ Connected",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        1500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "result",
+              "type": "string",
+              "value": "={{ 'Connected ✅ @' + $('👤 Check Token (me)').first().json.username + ' (id ' + $('👤 Check Token (me)').first().json.user_id + '). Auto DM is ready.' }}"
+            }
+          ]
+        }
+      },
+      "id": "9fbd40d3-fb72-4dea-8a15-8a4cdc47e3f2"
+    },
+    {
+      "name": "⏱️ Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1800,
+        700
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "79c50b6d-438b-4b76-9457-ab98800ec37a"
+    },
+    {
+      "name": "⚙️ Poll Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -1580,
+        700
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Settings"
+        },
+        "limit": 1
+      },
+      "id": "7aab602c-de30-4b8f-8e56-444d14c6f769"
+    },
+    {
+      "name": "🎬 Poll Active Reels",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -1360,
+        700
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Reels"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "active",
+              "condition": "isTrue"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "c47c053c-af8d-47ad-acc4-c6ee2224d670"
+    },
+    {
+      "name": "🗂️ Recent Media",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1140,
+        700
+      ],
+      "executeOnce": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "=https://graph.instagram.com/v24.0/{{ $('⚙️ Poll Settings').first().json.ig_user_id }}/media",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,shortcode"
+            },
+            {
+              "name": "limit",
+              "value": "25"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('⚙️ Poll Settings').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "6da0ac59-c5dc-4602-8a10-00f4edad8caf"
+    },
+    {
+      "name": "🧮 Reels to Poll",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -920,
+        700
+      ],
+      "parameters": {
+        "jsCode": "// Which media ids to check for new comments\nconst reels = $('🎬 Poll Active Reels').all().map(i => i.json).filter(r => r && r.active);\nconst media = (($input.first() || {}).json || {}).data || [];\nconst codeOf = u => (String(u || '').match(/\\/(?:reel|reels|p|tv)\\/([A-Za-z0-9_-]+)/) || [])[1] || '';\nconst isAll = r => ['ALL', '*'].includes(String(r.reel_url || '').trim().toUpperCase());\nconst ids = new Set();\nfor (const r of reels) {\n  if (isAll(r)) { media.slice(0, 10).forEach(m => ids.add(String(m.id))); continue; }\n  if (r.media_id) { ids.add(String(r.media_id)); continue; }\n  const m = media.find(x => x.shortcode && x.shortcode === codeOf(r.reel_url));\n  if (m) ids.add(String(m.id));\n}\nreturn [...ids].map(media_id => ({ json: { media_id } }));"
+      },
+      "id": "f4785909-858f-4325-9566-af2cecd57cca"
+    },
+    {
+      "name": "💭 Fetch Comments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -700,
+        700
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "url": "=https://graph.instagram.com/v24.0/{{ $json.media_id }}/comments",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,text,timestamp,from"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('⚙️ Poll Settings').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "9c86c39b-cc5b-4a8b-8800-a3e66c32c093"
+    },
+    {
+      "name": "📒 Recent Log",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -480,
+        700
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "IG AutoDM Log"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "sent_at",
+              "condition": "gte",
+              "keyValue": "={{ $now.minus({ days: 2 }).toISO() }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "ec22985c-64b2-421d-96c4-df8fc58bd802"
+    },
+    {
+      "name": "🆕 New Comments → Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -260,
+        700
+      ],
+      "parameters": {
+        "jsCode": "// Turn fresh, unhandled comments into the same body shape Meta's webhook sends\nconst s = $('⚙️ Poll Settings').first().json;\nconst me = String(s.ig_user_id || '');\nconst seen = new Set($('📒 Recent Log').all().map(i => i.json && String(i.json.comment_id || '')).filter(Boolean));\nconst cutoff = Date.now() - 15 * 60 * 1000;\nconst mediaIds = $('🧮 Reels to Poll').all().map(i => i.json.media_id);\nconst changes = [];\n$('💭 Fetch Comments').all().forEach((it, idx) => {\n  const media_id = mediaIds[idx];\n  for (const c of (it.json && it.json.data) || []) {\n    const from = c.from || {};\n    if (!c.id || !from.id || String(from.id) === me) continue;\n    if (seen.has(String(c.id))) continue;\n    if (new Date(c.timestamp).getTime() < cutoff) continue;\n    seen.add(String(c.id));\n    changes.push({ field: 'comments', value: { id: String(c.id), text: c.text || '', from: { id: String(from.id), username: from.username || '' }, media: { id: String(media_id), media_product_type: 'REELS' } } });\n  }\n});\nif (!changes.length) return [];\nreturn [{ json: { body: { object: 'instagram', entry: [{ id: me, time: Math.floor(Date.now() / 1000), changes }] }, source: 'poll' } }];"
+      },
+      "id": "2d6e1556-294a-4eb4-8548-ae2e444e371d"
+    }
+  ],
+  "connections": {
+    "📞 Meta Verify (GET)": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Settings (verify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Settings (verify)": {
+      "main": [
+        [
+          {
+            "node": "Verify token OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify token OK?": {
+      "main": [
+        [
+          {
+            "node": "✅ Return Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⛔ Forbidden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 New Comment (POST)": {
+      "main": [
+        [
+          {
+            "node": "📥 Extract Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📥 Extract Comments": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Load Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Load Settings": {
+      "main": [
+        [
+          {
+            "node": "🎬 Load Active Reels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎬 Load Active Reels": {
+      "main": [
+        [
+          {
+            "node": "🔎 Keyword Prefilter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔎 Keyword Prefilter": {
+      "main": [
+        [
+          {
+            "node": "🎞️ Get Reel Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎞️ Get Reel Info": {
+      "main": [
+        [
+          {
+            "node": "🎯 Match Reel + Build DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎯 Match Reel + Build DM": {
+      "main": [
+        [
+          {
+            "node": "🔁 One Comment at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔁 One Comment at a Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "📊 DMs Sent Last Hour",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 DMs Sent Last Hour": {
+      "main": [
+        [
+          {
+            "node": "🚦 Hourly Cap Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚦 Hourly Cap Check": {
+      "main": [
+        [
+          {
+            "node": "🔒 Claim in Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔒 Claim in Log": {
+      "main": [
+        [
+          {
+            "node": "Over hourly cap?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Over hourly cap?": {
+      "main": [
+        [
+          {
+            "node": "🔁 One Comment at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "👥 Claims for this Person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "👥 Claims for this Person": {
+      "main": [
+        [
+          {
+            "node": "🥇 First DM for this Person?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🥇 First DM for this Person?": {
+      "main": [
+        [
+          {
+            "node": "Is first?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is first?": {
+      "main": [
+        [
+          {
+            "node": "⏳ Human-like Delay",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🚫 Log Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏳ Human-like Delay": {
+      "main": [
+        [
+          {
+            "node": "📩 Send Private Reply DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📩 Send Private Reply DM": {
+      "main": [
+        [
+          {
+            "node": "📝 Log Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📝 Log Result": {
+      "main": [
+        [
+          {
+            "node": "Public reply too?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Public reply too?": {
+      "main": [
+        [
+          {
+            "node": "💬 Reply to Comment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔁 One Comment at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💬 Reply to Comment": {
+      "main": [
+        [
+          {
+            "node": "🔁 One Comment at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚫 Log Duplicate": {
+      "main": [
+        [
+          {
+            "node": "🔁 One Comment at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "➕ Add Reel Form": {
+      "main": [
+        [
+          {
+            "node": "💾 Save Reel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🗓️ Every Monday 4 AM": {
+      "main": [
+        [
+          {
+            "node": "🔑 Load Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔑 Load Token": {
+      "main": [
+        [
+          {
+            "node": "♻️ Refresh Token (60 days)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "♻️ Refresh Token (60 days)": {
+      "main": [
+        [
+          {
+            "node": "💾 Save New Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Connect Instagram Form": {
+      "main": [
+        [
+          {
+            "node": "👤 Check Token (me)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "👤 Check Token (me)": {
+      "main": [
+        [
+          {
+            "node": "💾 Save Connection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Save Connection": {
+      "main": [
+        [
+          {
+            "node": "✅ Connected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏱️ Every Minute": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Poll Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Poll Settings": {
+      "main": [
+        [
+          {
+            "node": "🎬 Poll Active Reels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎬 Poll Active Reels": {
+      "main": [
+        [
+          {
+            "node": "🗂️ Recent Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🗂️ Recent Media": {
+      "main": [
+        [
+          {
+            "node": "🧮 Reels to Poll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧮 Reels to Poll": {
+      "main": [
+        [
+          {
+            "node": "💭 Fetch Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💭 Fetch Comments": {
+      "main": [
+        [
+          {
+            "node": "📒 Recent Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📒 Recent Log": {
+      "main": [
+        [
+          {
+            "node": "🆕 New Comments → Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🆕 New Comments → Body": {
+      "main": [
+        [
+          {
+            "node": "📥 Extract Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
